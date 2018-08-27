@@ -1,8 +1,12 @@
 package org.besystem.stockit.stockit.Fragments;
 
+import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.content.res.XmlResourceParser;
 import android.os.Bundle;
@@ -11,6 +15,7 @@ import android.support.v4.app.FragmentManager;
 import android.text.InputType;
 import android.text.method.HideReturnsTransformationMethod;
 import android.text.method.PasswordTransformationMethod;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -20,17 +25,29 @@ import android.view.animation.AnimationUtils;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
+import android.widget.ListAdapter;
+import android.widget.SimpleAdapter;
 import android.widget.Toast;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import org.besystem.stockit.stockit.Activities.Customers;
+import org.besystem.stockit.stockit.Activities.LoginActivity;
+import org.besystem.stockit.stockit.Activities.SplashScreen;
+import org.besystem.stockit.stockit.Interfaces.OnTaskCompleted;
+import org.besystem.stockit.stockit.MainActivity;
+import org.besystem.stockit.stockit.Providers.Provider;
 import org.besystem.stockit.stockit.R;
 import org.besystem.stockit.stockit.Services.CustomToast;
+import org.besystem.stockit.stockit.Services.Session;
 import org.besystem.stockit.stockit.Services.Utils;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
-public class Login_Fragment extends Fragment implements OnClickListener {
+public class Login_Fragment extends Fragment implements OnClickListener,OnTaskCompleted {
     private static View view;
 
     private static EditText emailid, password;
@@ -40,6 +57,8 @@ public class Login_Fragment extends Fragment implements OnClickListener {
     private static LinearLayout loginLayout;
     private static Animation shakeAnimation;
     private static FragmentManager fragmentManager;
+
+    private String TAG = Login_Fragment.class.getSimpleName();
 
     public Login_Fragment() {
 
@@ -179,9 +198,51 @@ public class Login_Fragment extends Fragment implements OnClickListener {
             new CustomToast().Show_Toast(getActivity(), view,
                     "Your Email Id is Invalid.");
             // Else do login and do your stuff
-        else
-            Toast.makeText(getActivity(), "Do Login.", Toast.LENGTH_SHORT)
-                    .show();
+        else {
+            String url = "http://149.91.80.68/stockitmain/login/checklogin";
+            Provider httpRequest = new Provider(getActivity(),url,this);
+            httpRequest.setRootNode("response");
+
+            HashMap<String,String> params=new HashMap();
+            params.put("email",getEmailId);
+            params.put("password",getPassword);
+            httpRequest.setParams(params);
+            httpRequest.execute();
+        }
+
+    }
+
+    @Override
+    public void onTaskCompleted(JSONArray orderList) {
+        try {
+            for (int i = 0; i < orderList.length(); i++) {
+                JSONObject c = orderList.getJSONObject(i);
+                String user_exists = c.getString("user_exists");
+
+                if(user_exists.equals("true")){
+
+                    SharedPreferences sp=getActivity().getSharedPreferences("loginPref", Context.MODE_PRIVATE);
+                    SharedPreferences.Editor ed=sp.edit();
+                    ed.putString("login", "true");
+                    ed.commit();
+
+                    Intent l_intent = new Intent(getActivity(), Customers.class);
+                    startActivity(l_intent);
+
+                    // close this activity
+                    getActivity().finish();
+                }else{
+                    new CustomToast().Show_Toast(getActivity(), view,
+                            "Email ou mot de passe incorrect");
+                }
+            }
+        }
+        catch (final JSONException e){
+            Log.e(TAG, "Json parsing error: " + e.getMessage());
+        }
+        catch (final Exception e){
+            Log.e(TAG, "Json parsing error: " + e.getMessage());
+        }
 
     }
 }
